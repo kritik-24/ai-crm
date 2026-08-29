@@ -15,7 +15,7 @@ const aiRoutes = require("./routes/aiRoutes");
 // Connect Database
 connectDB();
 
-// CORS Configuration
+// Middleware
 app.use(
   cors({
     origin: [
@@ -27,7 +27,6 @@ app.use(
   })
 );
 
-// Middleware
 app.use(express.json());
 
 // Routes
