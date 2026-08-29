@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api/deals";
+const API_URL ="https://ai-crm-z8k9.onrender.com/api/deals";
 
 // Get all deals
 export const getDeals = async () => {

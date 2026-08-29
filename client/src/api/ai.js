@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api/ai";
+const API_URL = "https://ai-crm-z8k9.onrender.com/api/ai";
 
 export const getCustomerInsight = async (customerId) => {
   const token = localStorage.getItem("token");
