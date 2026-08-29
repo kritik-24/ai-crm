@@ -7,6 +7,7 @@ function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -14,6 +15,7 @@ function Register() {
     e.preventDefault();
 
     setMessage("");
+    setLoading(true);
 
     try {
       const data = await registerUser({
@@ -22,18 +24,31 @@ function Register() {
         password,
       });
 
-      setMessage(data.message || "Registration successful!");
+      console.log("Registration response:", data);
 
+      setMessage(
+        data.message || "Registration successful! Redirecting to login..."
+      );
+
+      // Clear form
+      setName("");
+      setEmail("");
+      setPassword("");
+
+      // Redirect to login page
       setTimeout(() => {
         navigate("/");
-      }, 1000);
+      }, 1500);
+
     } catch (error) {
       console.error("Registration error:", error);
 
       setMessage(
         error.response?.data?.message ||
-          "Registration failed"
+        "Registration failed. Please try again."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,8 +81,8 @@ function Register() {
           required
         />
 
-        <button type="submit">
-          Register
+        <button type="submit" disabled={loading}>
+          {loading ? "Registering..." : "Register"}
         </button>
       </form>
 

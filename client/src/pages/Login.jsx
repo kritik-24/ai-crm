@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerUser } from "../api/auth";
+import { loginUser } from "../api/auth";
 
-function Register() {
-  const [name, setName] = useState("");
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -14,42 +14,41 @@ function Register() {
     e.preventDefault();
 
     setMessage("");
+    setLoading(true);
 
     try {
-      const data = await registerUser({
-        name,
+      const data = await loginUser({
         email,
         password,
       });
 
-      setMessage(data.message || "Registration successful!");
+      console.log("Login response:", data);
 
-      setTimeout(() => {
-        navigate("/");
-      }, 1000);
+      // Save JWT token
+      localStorage.setItem("token", data.token);
+
+      setMessage("Login successful!");
+
+      // Redirect to dashboard
+      navigate("/dashboard");
+
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("Login error:", error);
 
       setMessage(
         error.response?.data?.message ||
-          "Registration failed"
+        "Login failed. Please try again."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div>
-      <h1>Create AI CRM Account</h1>
+      <h1>AI CRM Login</h1>
 
       <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-
         <input
           type="email"
           placeholder="Email"
@@ -66,19 +65,19 @@ function Register() {
           required
         />
 
-        <button type="submit">
-          Register
+        <button type="submit" disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
 
       {message && <p>{message}</p>}
 
       <p>
-        Already have an account?{" "}
-        <Link to="/">Login here</Link>
+        Don't have an account?{" "}
+        <Link to="/register">Register here</Link>
       </p>
     </div>
   );
 }
 
-export default Register;
+export default Login;
