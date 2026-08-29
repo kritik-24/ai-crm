@@ -15,7 +15,7 @@ const aiRoutes = require("./routes/aiRoutes");
 // Connect Database
 connectDB();
 
-// Middleware
+// CORS
 app.use(
   cors({
     origin: [
@@ -36,7 +36,7 @@ app.use("/api/deals", dealRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/ai", aiRoutes);
 
-// Test Route
+// Test route
 app.get("/", (req, res) => {
   res.json({
     message: "AI CRM API is running successfully",
