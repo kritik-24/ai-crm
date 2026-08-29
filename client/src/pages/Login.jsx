@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/auth";
 
 function Login() {
@@ -40,6 +40,7 @@ function Login() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
         />
 
         <input
@@ -47,12 +48,20 @@ function Login() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
         <button type="submit">
           Login
         </button>
       </form>
+
+      <p>
+        Don't have an account?{" "}
+        <Link to="/register">
+          Register here
+        </Link>
+      </p>
 
       {message && <p>{message}</p>}
     </div>
