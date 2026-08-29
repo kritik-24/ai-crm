@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://ai-crm-9zcx.onrender.com/api/auth",
+  baseURL: "https://ai-crm-z8k9.onrender.com/api/auth",
 });
 
 export const registerUser = async (userData) => {
