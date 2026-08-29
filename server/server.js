@@ -12,24 +12,32 @@ const dealRoutes = require("./routes/dealRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
+// Connect Database
 connectDB();
 
-const corsOptions = {
-  origin: "https://ai-crm-1-azsh.onrender.com",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
+// CORS Configuration
+app.use(
+  cors({
+    origin: [
+      "https://ai-crm-1-azsh.onrender.com",
+      "http://localhost:5173",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-app.use(cors(corsOptions));
-
+// Middleware
 app.use(express.json());
 
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/deals", dealRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/ai", aiRoutes);
 
+// Test Route
 app.get("/", (req, res) => {
   res.json({
     message: "AI CRM API is running successfully",

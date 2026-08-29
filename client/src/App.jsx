@@ -16,19 +16,16 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* Login */}
         <Route
           path="/"
           element={<Login />}
         />
 
-        {/* Register */}
         <Route
           path="/register"
           element={<Register />}
         />
 
-        {/* Dashboard */}
         <Route
           path="/dashboard"
           element={
@@ -38,7 +35,6 @@ function App() {
           }
         />
 
-        {/* Customers */}
         <Route
           path="/customers"
           element={
@@ -48,7 +44,6 @@ function App() {
           }
         />
 
-        {/* Deals */}
         <Route
           path="/deals"
           element={
@@ -58,7 +53,6 @@ function App() {
           }
         />
 
-        {/* Tasks */}
         <Route
           path="/tasks"
           element={
@@ -68,7 +62,6 @@ function App() {
           }
         />
 
-        {/* Leads */}
         <Route
           path="/leads"
           element={
@@ -77,14 +70,15 @@ function App() {
             </ProtectedRoute>
           }
         />
-<Route
-  path="/analytics"
-  element={
-    <ProtectedRoute>
-      <Analytics />
-    </ProtectedRoute>
-  }
-/>
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
 
       </Routes>
     </BrowserRouter>

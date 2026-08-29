@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { registerUser } from "../api/auth";
 
 function Register() {
@@ -12,6 +12,7 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setMessage("");
 
     try {
@@ -23,19 +24,15 @@ function Register() {
 
       setMessage(data.message || "Registration successful!");
 
-      setName("");
-      setEmail("");
-      setPassword("");
-
       setTimeout(() => {
         navigate("/");
-      }, 1500);
-
+      }, 1000);
     } catch (error) {
       console.error("Registration error:", error);
 
       setMessage(
-        error.response?.data?.message || "Registration failed"
+        error.response?.data?.message ||
+          "Registration failed"
       );
     }
   };
@@ -74,12 +71,12 @@ function Register() {
         </button>
       </form>
 
+      {message && <p>{message}</p>}
+
       <p>
         Already have an account?{" "}
         <Link to="/">Login here</Link>
       </p>
-
-      {message && <p>{message}</p>}
     </div>
   );
 }
