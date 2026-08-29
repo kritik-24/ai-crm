@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { registerUser } from "../api/auth";
 
 function Register() {
@@ -7,8 +8,11 @@ function Register() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
+  const navigate = useNavigate();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage("");
 
     try {
       const data = await registerUser({
@@ -17,11 +21,19 @@ function Register() {
         password,
       });
 
-      setMessage(data.message);
+      setMessage(data.message || "Registration successful!");
+
       setName("");
       setEmail("");
       setPassword("");
+
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
+
     } catch (error) {
+      console.error("Registration error:", error);
+
       setMessage(
         error.response?.data?.message || "Registration failed"
       );
@@ -38,6 +50,7 @@ function Register() {
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          required
         />
 
         <input
@@ -45,6 +58,7 @@ function Register() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
         />
 
         <input
@@ -52,12 +66,18 @@ function Register() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
         <button type="submit">
           Register
         </button>
       </form>
+
+      <p>
+        Already have an account?{" "}
+        <Link to="/">Login here</Link>
+      </p>
 
       {message && <p>{message}</p>}
     </div>
