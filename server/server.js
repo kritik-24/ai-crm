@@ -2,8 +2,6 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
-const app = express();
-
 const connectDB = require("./db");
 
 const authRoutes = require("./routes/authRoutes");
@@ -12,10 +10,12 @@ const dealRoutes = require("./routes/dealRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
+const app = express();
+
 // Connect Database
 connectDB();
 
-// CORS
+// Middleware
 app.use(
   cors({
     origin: [
@@ -36,13 +36,14 @@ app.use("/api/deals", dealRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/ai", aiRoutes);
 
-// Test route
+// Test Route
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     message: "AI CRM API is running successfully",
   });
 });
 
+// Server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
