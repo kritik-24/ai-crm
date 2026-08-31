@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Analytics from "./pages/Analytics";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
 import Deals from "./pages/Deals";
@@ -14,18 +15,28 @@ import Leads from "./pages/Leads";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CRMLayout from "./components/CRMLayout";
 
+function ProtectedLayout({ children }) {
+  return (
+    <ProtectedRoute>
+      <CRMLayout>{children}</CRMLayout>
+    </ProtectedRoute>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* ================= PUBLIC ROUTES ================= */}
 
-        {/* Public Routes */}
         <Route path="/" element={<Login />} />
+
         <Route path="/login" element={<Login />} />
+
         <Route path="/register" element={<Register />} />
 
         <Route
-          path="/forgot-Password"
+          path="/forgot-password"
           element={<ForgotPassword />}
         />
 
@@ -34,74 +45,74 @@ function App() {
           element={<ResetPassword />}
         />
 
-        {/* Protected CRM Routes */}
+        {/* Backward compatibility */}
+        <Route
+          path="/forgot-Password"
+          element={<Navigate to="/forgot-password" replace />}
+        />
+
+        {/* ================= PROTECTED CRM ROUTES ================= */}
 
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
-              <CRMLayout>
-                <Dashboard />
-              </CRMLayout>
-            </ProtectedRoute>
+            <ProtectedLayout>
+              <Dashboard />
+            </ProtectedLayout>
           }
         />
 
         <Route
           path="/customers"
           element={
-            <ProtectedRoute>
-              <CRMLayout>
-                <Customers />
-              </CRMLayout>
-            </ProtectedRoute>
+            <ProtectedLayout>
+              <Customers />
+            </ProtectedLayout>
           }
         />
 
         <Route
           path="/deals"
           element={
-            <ProtectedRoute>
-              <CRMLayout>
-                <Deals />
-              </CRMLayout>
-            </ProtectedRoute>
+            <ProtectedLayout>
+              <Deals />
+            </ProtectedLayout>
           }
         />
 
         <Route
           path="/tasks"
           element={
-            <ProtectedRoute>
-              <CRMLayout>
-                <Tasks />
-              </CRMLayout>
-            </ProtectedRoute>
+            <ProtectedLayout>
+              <Tasks />
+            </ProtectedLayout>
           }
         />
 
         <Route
           path="/leads"
           element={
-            <ProtectedRoute>
-              <CRMLayout>
-                <Leads />
-              </CRMLayout>
-            </ProtectedRoute>
+            <ProtectedLayout>
+              <Leads />
+            </ProtectedLayout>
           }
         />
 
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute>
-              <CRMLayout>
-                <Analytics />
-              </CRMLayout>
-            </ProtectedRoute>
+            <ProtectedLayout>
+              <Analytics />
+            </ProtectedLayout>
           }
         />
 
+        {/* ================= FALLBACK ================= */}
+
+        <Route
+          path="*"
+          element={<Navigate to="/dashboard" replace />}
+        />
       </Routes>
     </BrowserRouter>
   );

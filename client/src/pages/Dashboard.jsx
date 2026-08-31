@@ -1,435 +1,809 @@
-import {
-  Users,
-  UserPlus,
-  BriefcaseBusiness,
-  TrendingUp,
-  ArrowUpRight,
-  Target,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
-  Sparkles,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  Tooltip,
-} from "recharts";
+import { getCustomerStats } from "../api/customer";
+import { getDealStats } from "../api/deal";
 
 function Dashboard() {
-  // Temporary chart data
-  // Later we can connect this to your backend API
-  const revenueData = [
-    { month: "Jan", revenue: 40000 },
-    { month: "Feb", revenue: 65000 },
-    { month: "Mar", revenue: 50000 },
-    { month: "Apr", revenue: 90000 },
-    { month: "May", revenue: 75000 },
-    { month: "Jun", revenue: 120000 },
+  const navigate = useNavigate();
+
+  const [customerStats, setCustomerStats] = useState({
+    totalCustomers: 0,
+    totalLeads: 0,
+    activeCustomers: 0,
+    inactiveCustomers: 0,
+  });
+
+  const [dealStats, setDealStats] = useState({
+    totalDeals: 0,
+    wonDeals: 0,
+    lostDeals: 0,
+    pipelineDeals: 0,
+    totalPipelineValue: 0,
+    expectedRevenue: 0,
+    weightedPipeline: 0,
+    highRiskDeals: 0,
+    winRate: 0,
+    wonValue: 0,
+    lostValue: 0,
+
+    pipeline: {
+      prospecting: {
+        count: 0,
+        value: 0,
+        probability: 40,
+      },
+
+      negotiation: {
+        count: 0,
+        value: 0,
+        probability: 70,
+      },
+
+      won: {
+        count: 0,
+        value: 0,
+        probability: 100,
+      },
+
+      lost: {
+        count: 0,
+        value: 0,
+        probability: 0,
+      },
+    },
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // ================= LOAD DASHBOARD =================
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [customerData, dealData] = await Promise.all([
+        getCustomerStats(),
+        getDealStats(),
+      ]);
+
+      setCustomerStats({
+        totalCustomers: customerData.totalCustomers ?? 0,
+        totalLeads: customerData.totalLeads ?? 0,
+        activeCustomers: customerData.activeCustomers ?? 0,
+        inactiveCustomers: customerData.inactiveCustomers ?? 0,
+      });
+
+      setDealStats({
+        totalDeals: dealData.totalDeals ?? 0,
+        wonDeals: dealData.wonDeals ?? 0,
+        lostDeals: dealData.lostDeals ?? 0,
+        pipelineDeals: dealData.pipelineDeals ?? 0,
+        totalPipelineValue: dealData.totalPipelineValue ?? 0,
+        expectedRevenue: dealData.expectedRevenue ?? 0,
+        weightedPipeline: dealData.weightedPipeline ?? 0,
+        highRiskDeals: dealData.highRiskDeals ?? 0,
+        winRate: dealData.winRate ?? 0,
+        wonValue: dealData.wonValue ?? 0,
+        lostValue: dealData.lostValue ?? 0,
+
+        pipeline: {
+          prospecting: {
+            count: dealData.pipeline?.prospecting?.count ?? 0,
+            value: dealData.pipeline?.prospecting?.value ?? 0,
+            probability:
+              dealData.pipeline?.prospecting?.probability ?? 40,
+          },
+
+          negotiation: {
+            count: dealData.pipeline?.negotiation?.count ?? 0,
+            value: dealData.pipeline?.negotiation?.value ?? 0,
+            probability:
+              dealData.pipeline?.negotiation?.probability ?? 70,
+          },
+
+          won: {
+            count: dealData.pipeline?.won?.count ?? 0,
+            value: dealData.pipeline?.won?.value ?? 0,
+            probability:
+              dealData.pipeline?.won?.probability ?? 100,
+          },
+
+          lost: {
+            count: dealData.pipeline?.lost?.count ?? 0,
+            value: dealData.pipeline?.lost?.value ?? 0,
+            probability:
+              dealData.pipeline?.lost?.probability ?? 0,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("DASHBOARD ERROR:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Failed to load dashboard statistics"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // ================= FORMAT CURRENCY =================
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value || 0);
+  };
+
+  // ================= PIPELINE =================
+
+  const pipelineStages = [
+    {
+      name: "Prospecting",
+      icon: "🔎",
+      data: dealStats.pipeline.prospecting,
+      color: "border-blue-200 bg-blue-50",
+    },
+
+    {
+      name: "Negotiation",
+      icon: "🤝",
+      data: dealStats.pipeline.negotiation,
+      color: "border-yellow-200 bg-yellow-50",
+    },
+
+    {
+      name: "Won",
+      icon: "🏆",
+      data: dealStats.pipeline.won,
+      color: "border-green-200 bg-green-50",
+    },
+
+    {
+      name: "Lost",
+      icon: "📉",
+      data: dealStats.pipeline.lost,
+      color: "border-red-200 bg-red-50",
+    },
   ];
 
-  const stats = [
-    {
-      title: "Total Customers",
-      value: "4",
-      description: "Registered customers",
-      icon: Users,
-    },
-    {
-      title: "Total Leads",
-      value: "0",
-      description: "Potential opportunities",
-      icon: UserPlus,
-    },
-    {
-      title: "Active Deals",
-      value: "1",
-      description: "Currently in pipeline",
-      icon: BriefcaseBusiness,
-    },
-    {
-      title: "Expected Revenue",
-      value: "₹555",
-      description: "Forecasted pipeline value",
-      icon: TrendingUp,
-    },
-  ];
+  // ================= LOADING =================
 
-  return (
-    <div className="mx-auto max-w-[1600px] space-y-8">
+  if (loading) {
+    return (
+      <div className="p-6 md:p-8">
 
-      {/* Welcome Section */}
-      <section className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+        <div className="animate-pulse space-y-6">
 
-        <div>
-          <div className="flex items-center gap-2">
+          <div>
+            <div className="h-8 w-64 bg-slate-200 rounded" />
+            <div className="h-4 w-96 max-w-full bg-slate-200 rounded mt-3" />
+          </div>
 
-            <Sparkles
-              size={20}
-              className="text-blue-600"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
 
-            <span className="text-sm font-semibold text-blue-600">
-              AI POWERED WORKSPACE
-            </span>
+            {[1, 2, 3, 4].map((item) => (
+              <div
+                key={item}
+                className="bg-white rounded-2xl border border-slate-200 p-6"
+              >
+                <div className="h-4 w-24 bg-slate-200 rounded" />
+
+                <div className="h-8 w-20 bg-slate-200 rounded mt-4" />
+
+                <div className="h-3 w-32 bg-slate-200 rounded mt-4" />
+              </div>
+            ))}
 
           </div>
 
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            Welcome back 👋
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Here's what's happening with your CRM today.
-          </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex flex-wrap gap-3">
+      </div>
+    );
+  }
 
-          <button className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+  // ================= UI =================
 
-            <Plus size={18} />
+  return (
+    <div className="p-5 md:p-8 max-w-[1600px] mx-auto">
 
-            Add Customer
+      {/* HEADER */}
 
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6 mb-8">
+
+        <div>
+
+          <div className="flex items-center gap-3">
+
+            <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl shadow-lg">
+              📊
+            </div>
+
+            <div>
+
+              <h1 className="text-3xl font-bold text-slate-900">
+                CRM Overview
+              </h1>
+
+              <p className="text-slate-500 mt-1">
+                Monitor your customers, deals and sales performance.
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* ACTION BUTTONS */}
+
+        <div className="flex flex-col sm:flex-row gap-3">
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/customers?action=create")
+            }
+            className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-300 transition shadow-sm"
+          >
+            👥 Add Customer
           </button>
 
-          <button className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700">
 
-            <BriefcaseBusiness size={18} />
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/deals?action=create")
+            }
+            className="px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shadow-lg shadow-blue-200"
+          >
+            💼 Create Deal
+          </button>
 
-            Create Deal
 
+          <button
+            type="button"
+            onClick={loadDashboardData}
+            className="px-5 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
+          >
+            ↻ Refresh
           </button>
 
         </div>
 
-      </section>
+      </div>
 
-      {/* KPI Cards */}
-      <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
 
-        {stats.map((stat) => {
-          const Icon = stat.icon;
+      {/* ERROR */}
 
-          return (
-            <div
-              key={stat.title}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
+      {error && (
+
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+            <p className="text-red-700">
+              ⚠️ {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={loadDashboardData}
+              className="text-sm font-semibold text-red-700 hover:text-red-900"
             >
+              Try Again
+            </button>
 
-              <div className="flex items-start justify-between">
+          </div>
 
-                <div>
+        </div>
 
-                  <p className="text-sm font-medium text-slate-500">
-                    {stat.title}
-                  </p>
+      )}
 
-                  <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                    {stat.value}
-                  </h2>
 
-                </div>
+      {/* CUSTOMER OVERVIEW */}
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:scale-110">
-                  <Icon size={21} />
-                </div>
+      <div className="mb-10">
+
+        <div className="flex items-center justify-between mb-5">
+
+          <div>
+
+            <h2 className="text-xl font-bold text-slate-900">
+              Customer Overview
+            </h2>
+
+            <p className="text-sm text-slate-500 mt-1">
+              Current customer and lead distribution.
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/customers")}
+            className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            View Customers →
+          </button>
+
+        </div>
+
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+
+
+          {/* LEADS */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-slate-500">
+                  Total Leads
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-3">
+                  {customerStats.totalLeads}
+                </p>
 
               </div>
 
-              <div className="mt-5 flex items-center gap-2">
+              <div className="w-12 h-12 rounded-xl bg-yellow-50 flex items-center justify-center text-2xl">
+                🎯
+              </div>
 
-                <ArrowUpRight
-                  size={16}
-                  className="text-emerald-600"
-                />
+            </div>
 
-                <span className="text-xs text-slate-500">
-                  {stat.description}
+            <p className="text-sm text-slate-400 mt-5">
+              Potential opportunities
+            </p>
+
+          </div>
+
+
+          {/* CUSTOMERS */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-slate-500">
+                  Customers
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-3">
+                  {customerStats.totalCustomers}
+                </p>
+
+              </div>
+
+              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-2xl">
+                👥
+              </div>
+
+            </div>
+
+            <p className="text-sm text-slate-400 mt-5">
+              Total customer records
+            </p>
+
+          </div>
+
+
+          {/* ACTIVE */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-slate-500">
+                  Active Customers
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-3">
+                  {customerStats.activeCustomers}
+                </p>
+
+              </div>
+
+              <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-2xl">
+                ✓
+              </div>
+
+            </div>
+
+            <p className="text-sm text-green-600 mt-5 font-medium">
+              Currently engaged
+            </p>
+
+          </div>
+
+
+          {/* INACTIVE */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-sm font-medium text-slate-500">
+                  Inactive Customers
+                </p>
+
+                <p className="text-3xl font-bold text-slate-900 mt-3">
+                  {customerStats.inactiveCustomers}
+                </p>
+
+              </div>
+
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
+                ⏸
+              </div>
+
+            </div>
+
+            <p className="text-sm text-slate-400 mt-5">
+              Require follow-up
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* SALES PERFORMANCE */}
+
+      <div className="mb-10">
+
+        <div className="flex items-center justify-between mb-5">
+
+          <div>
+
+            <h2 className="text-xl font-bold text-slate-900">
+              Sales Performance
+            </h2>
+
+            <p className="text-sm text-slate-500 mt-1">
+              Pipeline value and revenue forecast.
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/deals")}
+            className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            View Deals →
+          </button>
+
+        </div>
+
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+
+
+          {/* TOTAL PIPELINE */}
+
+          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 shadow-lg">
+
+            <p className="text-sm text-blue-100">
+              Total Pipeline
+            </p>
+
+            <p className="text-2xl font-bold mt-3">
+              {formatCurrency(dealStats.totalPipelineValue)}
+            </p>
+
+            <div className="mt-6 pt-4 border-t border-blue-500">
+
+              <p className="text-sm text-blue-100">
+                {dealStats.pipelineDeals} open deals
+              </p>
+
+            </div>
+
+          </div>
+
+
+          {/* EXPECTED REVENUE */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+
+            <p className="text-sm font-medium text-slate-500">
+              Expected Revenue
+            </p>
+
+            <p className="text-2xl font-bold text-slate-900 mt-3">
+              {formatCurrency(dealStats.expectedRevenue)}
+            </p>
+
+            <p className="text-sm text-slate-400 mt-6">
+              Based on deal probability
+            </p>
+
+          </div>
+
+
+          {/* WEIGHTED PIPELINE */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+
+            <p className="text-sm font-medium text-slate-500">
+              Weighted Pipeline
+            </p>
+
+            <p className="text-2xl font-bold text-slate-900 mt-3">
+              {formatCurrency(dealStats.weightedPipeline)}
+            </p>
+
+            <p className="text-sm text-slate-400 mt-6">
+              Forecasted pipeline value
+            </p>
+
+          </div>
+
+
+          {/* WIN RATE */}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+
+            <p className="text-sm font-medium text-slate-500">
+              Win Rate
+            </p>
+
+            <p className="text-3xl font-bold text-green-600 mt-3">
+              {dealStats.winRate}%
+            </p>
+
+            <p className="text-sm text-slate-400 mt-6">
+              Won vs closed deals
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* DEAL HEALTH */}
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-10">
+
+
+        {/* TOTAL DEALS */}
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <p className="text-sm text-slate-500">
+                Total Deals
+              </p>
+
+              <p className="text-4xl font-bold text-slate-900 mt-3">
+                {dealStats.totalDeals}
+              </p>
+
+            </div>
+
+            <div className="text-4xl">
+              💼
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* WON DEALS */}
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <p className="text-sm text-slate-500">
+                Won Deals
+              </p>
+
+              <p className="text-4xl font-bold text-green-600 mt-3">
+                {dealStats.wonDeals}
+              </p>
+
+              <p className="text-sm text-slate-400 mt-3">
+                {formatCurrency(dealStats.wonValue)}
+              </p>
+
+            </div>
+
+            <div className="text-4xl">
+              🏆
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* HIGH RISK */}
+
+        <div className="bg-white border border-red-100 rounded-2xl p-6 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <p className="text-sm text-slate-500">
+                High Risk Deals
+              </p>
+
+              <p className="text-4xl font-bold text-red-600 mt-3">
+                {dealStats.highRiskDeals}
+              </p>
+
+              <p className="text-sm text-red-500 mt-3">
+                Require attention
+              </p>
+
+            </div>
+
+            <div className="text-4xl">
+              ⚠️
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* PIPELINE */}
+
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-7">
+
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+
+          <div>
+
+            <h2 className="text-xl font-bold text-slate-900">
+              Pipeline by Stage
+            </h2>
+
+            <p className="text-sm text-slate-500 mt-1">
+              Current distribution of your sales pipeline.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+
+          {pipelineStages.map((stage) => (
+
+            <div
+              key={stage.name}
+              className={`border rounded-2xl p-5 ${stage.color}`}
+            >
+
+              <div className="flex items-center justify-between">
+
+                <h3 className="font-bold text-slate-800">
+                  {stage.name}
+                </h3>
+
+                <span className="text-xl">
+                  {stage.icon}
                 </span>
 
               </div>
 
-            </div>
-          );
-        })}
 
-      </section>
-
-      {/* Analytics Section */}
-      <section className="grid gap-6 xl:grid-cols-3">
-
-        {/* Revenue Chart */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-
-          <div className="mb-8 flex items-center justify-between">
-
-            <div>
-
-              <h2 className="text-lg font-bold text-slate-900">
-                Revenue Overview
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Revenue performance over the last 6 months
+              <p className="text-3xl font-bold text-slate-900 mt-5">
+                {stage.data.count}
               </p>
 
+
+              <p className="text-sm text-slate-500 mt-1">
+                Deals
+              </p>
+
+
+              <div className="mt-5 pt-4 border-t border-slate-200">
+
+                <p className="font-semibold text-slate-800">
+                  {formatCurrency(stage.data.value)}
+                </p>
+
+                <p className="text-xs text-slate-500 mt-2">
+                  Probability: {stage.data.probability}%
+                </p>
+
+              </div>
+
             </div>
 
-            <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none">
-
-              <option>
-                Last 6 months
-              </option>
-
-            </select>
-
-          </div>
-
-          <div className="h-[280px]">
-
-            <ResponsiveContainer width="100%" height="100%">
-
-              <AreaChart data={revenueData}>
-
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                />
-
-                <Tooltip />
-
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#2563EB"
-                  strokeWidth={3}
-                  fill="#DBEAFE"
-                />
-
-              </AreaChart>
-
-            </ResponsiveContainer>
-
-          </div>
+          ))}
 
         </div>
-
-        {/* AI Insights */}
-        <div className="rounded-2xl bg-slate-900 p-6 text-white shadow-lg">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600">
-
-              <Sparkles size={21} />
-
-            </div>
-
-            <div>
-
-              <h2 className="font-bold">
-                AI Insights
-              </h2>
-
-              <p className="text-xs text-slate-400">
-                Smart CRM intelligence
-              </p>
-
-            </div>
-
-          </div>
-
-          <div className="mt-8 space-y-4">
-
-            <div className="rounded-xl bg-white/10 p-4">
-
-              <p className="text-sm font-medium">
-                📈 Pipeline Opportunity
-              </p>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Your active pipeline currently contains ₹555 in potential revenue.
-              </p>
-
-            </div>
-
-            <div className="rounded-xl bg-white/10 p-4">
-
-              <p className="text-sm font-medium">
-                🎯 Lead Activity
-              </p>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                You currently have no active leads. Add leads to improve your sales pipeline.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* Bottom Section */}
-      <section className="grid gap-6 xl:grid-cols-2">
-
-        {/* Deal Health */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-          <h2 className="text-lg font-bold text-slate-900">
-            Deal Health
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Overview of your sales opportunities
-          </p>
-
-          <div className="mt-6 grid grid-cols-3 gap-4">
-
-            <div className="rounded-xl bg-slate-50 p-4">
-
-              <BriefcaseBusiness
-                size={20}
-                className="text-blue-600"
-              />
-
-              <p className="mt-3 text-2xl font-bold text-slate-900">
-                3
-              </p>
-
-              <p className="text-xs text-slate-500">
-                Total Deals
-              </p>
-
-            </div>
-
-            <div className="rounded-xl bg-emerald-50 p-4">
-
-              <CheckCircle2
-                size={20}
-                className="text-emerald-600"
-              />
-
-              <p className="mt-3 text-2xl font-bold text-slate-900">
-                2
-              </p>
-
-              <p className="text-xs text-slate-500">
-                Won Deals
-              </p>
-
-            </div>
-
-            <div className="rounded-xl bg-red-50 p-4">
-
-              <AlertTriangle
-                size={20}
-                className="text-red-600"
-              />
-
-              <p className="mt-3 text-2xl font-bold text-slate-900">
-                1
-              </p>
-
-              <p className="text-xs text-slate-500">
-                High Risk
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Pipeline */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-          <h2 className="text-lg font-bold text-slate-900">
-            Pipeline Overview
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Deals grouped by sales stage
-          </p>
-
-          <div className="mt-6 space-y-5">
-
-            <PipelineRow
-              title="Prospecting"
-              deals={0}
-              value="₹0"
-              progress="10%"
-            />
-
-            <PipelineRow
-              title="Negotiation"
-              deals={1}
-              value="₹555"
-              progress="40%"
-            />
-
-            <PipelineRow
-              title="Won"
-              deals={2}
-              value="₹4.15 Cr"
-              progress="100%"
-            />
-
-          </div>
-
-        </div>
-
-      </section>
-
-    </div>
-  );
-}
-
-function PipelineRow({
-  title,
-  deals,
-  value,
-  progress,
-}) {
-  return (
-    <div>
-
-      <div className="flex items-center justify-between">
-
-        <div>
-
-          <p className="font-semibold text-slate-800">
-            {title}
-          </p>
-
-          <p className="mt-1 text-xs text-slate-500">
-            {deals} deals
-          </p>
-
-        </div>
-
-        <p className="font-bold text-slate-900">
-          {value}
-        </p>
 
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
 
-        <div
-          className="h-full rounded-full bg-blue-600"
-          style={{
-            width: progress,
-          }}
-        />
+      {/* QUICK ACTION */}
+
+      <div className="mt-8 rounded-2xl bg-slate-900 p-6 md:p-8 text-white">
+
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+
+          <div>
+
+            <h2 className="text-2xl font-bold">
+              Ready to grow your pipeline?
+            </h2>
+
+            <p className="text-slate-400 mt-2">
+              Add a customer or create a new deal to continue building your CRM.
+            </p>
+
+          </div>
+
+
+          <div className="flex flex-wrap gap-3">
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/customers?action=create")
+              }
+              className="px-5 py-3 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition"
+            >
+              + Add Customer
+            </button>
+
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/deals?action=create")
+              }
+              className="px-5 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 transition"
+            >
+              + Create Deal
+            </button>
+
+          </div>
+
+        </div>
 
       </div>
 

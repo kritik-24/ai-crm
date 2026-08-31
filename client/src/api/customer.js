@@ -1,67 +1,88 @@
 import axios from "axios";
 
-const API_URL = "https://ai-crm-z8k9.onrender.com/api/customers";
+const API_URL =
+  "https://ai-crm-z8k9.onrender.com/api/customers";
+
+// ============================================
+// GET AUTH HEADERS
+// ============================================
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};
+
+// ============================================
+// GET ALL CUSTOMERS
+// ============================================
 
 export const getCustomers = async () => {
-  const token = localStorage.getItem("token");
-
-  const response = await axios.get(API_URL, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  return response.data;
-};
-
-export const createCustomer = async (customerData) => {
-  const token = localStorage.getItem("token");
-
-  const response = await axios.post(API_URL, customerData, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  return response.data;
-};
-
-export const updateCustomer = async (id, customerData) => {
-  const token = localStorage.getItem("token");
-
-  const response = await axios.put(
-    `${API_URL}/${id}`,
-    customerData,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+  const response = await axios.get(
+    API_URL,
+    getAuthHeaders()
   );
 
   return response.data;
 };
 
-export const deleteCustomer = async (id) => {
-  const token = localStorage.getItem("token");
+// ============================================
+// CREATE CUSTOMER
+// ============================================
 
-  const response = await axios.delete(`${API_URL}/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+export const createCustomer = async (customerData) => {
+  const response = await axios.post(
+    API_URL,
+    customerData,
+    getAuthHeaders()
+  );
 
   return response.data;
 };
 
-export const getCustomerStats = async () => {
-  const token = localStorage.getItem("token");
+// ============================================
+// UPDATE CUSTOMER
+// ============================================
 
-  const response = await axios.get(`${API_URL}/stats`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+export const updateCustomer = async (
+  id,
+  customerData
+) => {
+  const response = await axios.put(
+    `${API_URL}/${id}`,
+    customerData,
+    getAuthHeaders()
+  );
+
+  return response.data;
+};
+
+// ============================================
+// DELETE CUSTOMER
+// ============================================
+
+export const deleteCustomer = async (id) => {
+  const response = await axios.delete(
+    `${API_URL}/${id}`,
+    getAuthHeaders()
+  );
+
+  return response.data;
+};
+
+// ============================================
+// GET CUSTOMER STATISTICS
+// ============================================
+
+export const getCustomerStats = async () => {
+  const response = await axios.get(
+    `${API_URL}/stats`,
+    getAuthHeaders()
+  );
 
   return response.data;
 };

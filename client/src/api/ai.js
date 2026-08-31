@@ -2,37 +2,79 @@ import axios from "axios";
 
 const API_URL = "https://ai-crm-z8k9.onrender.com/api/ai";
 
-export const getCustomerInsight = async (customerId) => {
+const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
 
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};
+
+// ======================================================
+// CUSTOMER INSIGHT
+// ======================================================
+
+export const getCustomerInsight = async (customerId) => {
   const response = await axios.post(
     `${API_URL}/customer-insight`,
     {
       customerId,
     },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+    getAuthHeaders()
   );
 
   return response.data;
 };
 
-export const getDealRisk = async (dealId) => {
-  const token = localStorage.getItem("token");
+// ======================================================
+// DEAL RISK ANALYSIS
+// ======================================================
 
+export const getDealRisk = async (dealId) => {
   const response = await axios.post(
     `${API_URL}/deal-risk`,
     {
       dealId,
     },
+    getAuthHeaders()
+  );
+
+  return response.data;
+};
+
+// ======================================================
+// LEAD ANALYSIS
+// ======================================================
+
+export const getLeadAnalysis = async (leadId) => {
+  const response = await axios.post(
+    `${API_URL}/lead-analysis`,
     {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+      leadId,
+    },
+    getAuthHeaders()
+  );
+
+  return response.data;
+};
+
+// ======================================================
+// AI TASK GENERATION
+// ======================================================
+
+export const generateAITasks = async ({
+  customerId,
+  dealId,
+}) => {
+  const response = await axios.post(
+    `${API_URL}/generate-tasks`,
+    {
+      customerId,
+      dealId,
+    },
+    getAuthHeaders()
   );
 
   return response.data;

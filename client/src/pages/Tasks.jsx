@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import {
   getTasks,
@@ -34,14 +34,16 @@ const Tasks = () => {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
-  // -----------------------------
-  // Load Data
-  // -----------------------------
+  // =========================
+  // LOAD DATA
+  // =========================
 
   const loadTasks = async () => {
     const data = await getTasks();
@@ -84,9 +86,9 @@ const Tasks = () => {
     loadData();
   }, []);
 
-  // -----------------------------
-  // Form
-  // -----------------------------
+  // =========================
+  // FORM
+  // =========================
 
   const handleChange = (e) => {
     setForm((prev) => ({
@@ -125,6 +127,7 @@ const Tasks = () => {
       }
 
       resetForm();
+
       await loadTasks();
     } catch (error) {
       console.error("Task operation failed:", error);
@@ -140,9 +143,9 @@ const Tasks = () => {
     }
   };
 
-  // -----------------------------
-  // Edit
-  // -----------------------------
+  // =========================
+  // EDIT
+  // =========================
 
   const handleEdit = (task) => {
     setEditingId(task._id);
@@ -150,8 +153,14 @@ const Tasks = () => {
     setForm({
       title: task.title || "",
       description: task.description || "",
-      customer: task.customer?._id || task.customer || "",
-      deal: task.deal?._id || task.deal || "",
+      customer:
+        task.customer?._id ||
+        task.customer ||
+        "",
+      deal:
+        task.deal?._id ||
+        task.deal ||
+        "",
       dueDate: task.dueDate
         ? new Date(task.dueDate)
             .toISOString()
@@ -176,9 +185,9 @@ const Tasks = () => {
     setError("");
   };
 
-  // -----------------------------
-  // Delete
-  // -----------------------------
+  // =========================
+  // DELETE
+  // =========================
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
@@ -211,79 +220,83 @@ const Tasks = () => {
     }
   };
 
-  // -----------------------------
-  // Filtering
-  // -----------------------------
+  // =========================
+  // QUICK STATUS UPDATE
+  // =========================
 
-  const filteredTasks = tasks.filter((task) => {
-    const searchText = search.toLowerCase();
+  const updateTaskStatus = async (
+    task,
+    newStatus
+  ) => {
+    try {
+      setUpdatingStatusId(task._id);
+      setError("");
 
-    const matchesSearch =
-      task.title?.toLowerCase().includes(searchText) ||
-      task.description?.toLowerCase().includes(searchText) ||
-      task.customer?.name
-        ?.toLowerCase()
-        .includes(searchText) ||
-      task.deal?.title
-        ?.toLowerCase()
-        .includes(searchText);
+      await updateTask(task._id, {
+        title: task.title,
+        description: task.description || "",
+        customer:
+          task.customer?._id ||
+          task.customer ||
+          null,
+        deal:
+          task.deal?._id ||
+          task.deal ||
+          null,
+        dueDate: task.dueDate
+          ? new Date(task.dueDate)
+              .toISOString()
+              .split("T")[0]
+          : "",
+        priority: task.priority,
+        status: newStatus,
+      });
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      task.status === statusFilter;
+      setTasks((prev) =>
+        prev.map((item) =>
+          item._id === task._id
+            ? {
+                ...item,
+                status: newStatus,
+              }
+            : item
+        )
+      );
 
-    return matchesSearch && matchesStatus;
-  });
+      setMessage("Task status updated!");
+    } catch (error) {
+      console.error(
+        "Failed to update task status:",
+        error
+      );
 
-  // -----------------------------
-  // Statistics
-  // -----------------------------
-
-  const totalTasks = tasks.length;
-
-  const pendingTasks = tasks.filter(
-    (task) => task.status === "pending"
-  ).length;
-
-  const inProgressTasks = tasks.filter(
-    (task) => task.status === "in-progress"
-  ).length;
-
-  const completedTasks = tasks.filter(
-    (task) => task.status === "completed"
-  ).length;
-
-  // -----------------------------
-  // Styling Helpers
-  // -----------------------------
-
-  const getPriorityClass = (priority) => {
-    if (priority === "high") {
-      return "bg-red-100 text-red-700 border border-red-200";
+      setError(
+        error.response?.data?.message ||
+          "Failed to update task status"
+      );
+    } finally {
+      setUpdatingStatusId(null);
     }
-
-    if (priority === "medium") {
-      return "bg-yellow-100 text-yellow-700 border border-yellow-200";
-    }
-
-    return "bg-green-100 text-green-700 border border-green-200";
   };
 
-  const getStatusClass = (status) => {
-    if (status === "completed") {
-      return "bg-green-100 text-green-700 border border-green-200";
-    }
+  // =========================
+  // DATE HELPERS
+  // =========================
 
-    if (status === "in-progress") {
-      return "bg-blue-100 text-blue-700 border border-blue-200";
-    }
+  const getDaysDifference = (date) => {
+    if (!date) return null;
 
-    return "bg-gray-100 text-gray-700 border border-gray-200";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const due = new Date(date);
+    due.setHours(0, 0, 0, 0);
+
+    return Math.floor(
+      (due - today) /
+        (1000 * 60 * 60 * 24)
+    );
   };
-
-  // -----------------------------
-  // Date Helpers
-  // -----------------------------
 
   const formatDate = (date) => {
     if (!date) return "No due date";
@@ -298,31 +311,36 @@ const Tasks = () => {
     );
   };
 
-  const getDueDateInfo = (date, status) => {
-    if (!date || status === "completed") {
+  const getDueDateInfo = (
+    date,
+    status
+  ) => {
+    if (!date) {
       return {
-        label: formatDate(date),
-        className: "text-gray-500",
+        label: "No due date",
+        className:
+          "bg-slate-100 text-slate-600",
       };
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const due = new Date(date);
-    due.setHours(0, 0, 0, 0);
+    if (status === "completed") {
+      return {
+        label: formatDate(date),
+        className:
+          "bg-green-50 text-green-700",
+      };
+    }
 
     const difference =
-      Math.floor(
-        (due - today) /
-          (1000 * 60 * 60 * 24)
-      );
+      getDaysDifference(date);
 
     if (difference < 0) {
       return {
-        label: `Overdue • ${formatDate(date)}`,
+        label: `Overdue • ${formatDate(
+          date
+        )}`,
         className:
-          "text-red-600 font-semibold",
+          "bg-red-50 text-red-700 border border-red-100",
       };
     }
 
@@ -330,7 +348,7 @@ const Tasks = () => {
       return {
         label: "Due Today",
         className:
-          "text-orange-600 font-semibold",
+          "bg-orange-50 text-orange-700 border border-orange-100",
       };
     }
 
@@ -338,156 +356,326 @@ const Tasks = () => {
       return {
         label: "Due Tomorrow",
         className:
-          "text-yellow-600 font-semibold",
+          "bg-yellow-50 text-yellow-700 border border-yellow-100",
       };
     }
 
     return {
       label: formatDate(date),
-      className: "text-gray-600",
+      className:
+        "bg-blue-50 text-blue-700 border border-blue-100",
     };
   };
 
+  // =========================
+  // FILTERING
+  // =========================
+
+  const filteredTasks = useMemo(() => {
+    const searchText =
+      search.toLowerCase().trim();
+
+    return tasks.filter((task) => {
+      const matchesSearch =
+        task.title
+          ?.toLowerCase()
+          .includes(searchText) ||
+        task.description
+          ?.toLowerCase()
+          .includes(searchText) ||
+        task.customer?.name
+          ?.toLowerCase()
+          .includes(searchText) ||
+        task.deal?.title
+          ?.toLowerCase()
+          .includes(searchText);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        task.status === statusFilter;
+
+      const matchesPriority =
+        priorityFilter === "all" ||
+        task.priority === priorityFilter;
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority
+      );
+    });
+  }, [
+    tasks,
+    search,
+    statusFilter,
+    priorityFilter,
+  ]);
+
+  // =========================
+  // STATISTICS
+  // =========================
+
+  const statistics = useMemo(() => {
+    const total = tasks.length;
+
+    const pending = tasks.filter(
+      (task) => task.status === "pending"
+    ).length;
+
+    const inProgress = tasks.filter(
+      (task) =>
+        task.status === "in-progress"
+    ).length;
+
+    const completed = tasks.filter(
+      (task) =>
+        task.status === "completed"
+    ).length;
+
+    const overdue = tasks.filter(
+      (task) =>
+        task.status !== "completed" &&
+        task.dueDate &&
+        getDaysDifference(task.dueDate) < 0
+    ).length;
+
+    return {
+      total,
+      pending,
+      inProgress,
+      completed,
+      overdue,
+    };
+  }, [tasks]);
+
+  // =========================
+  // BADGES
+  // =========================
+
+  const getPriorityClass = (priority) => {
+    if (priority === "high") {
+      return "bg-red-50 text-red-700 border-red-200";
+    }
+
+    if (priority === "medium") {
+      return "bg-yellow-50 text-yellow-700 border-yellow-200";
+    }
+
+    return "bg-green-50 text-green-700 border-green-200";
+  };
+
+  const getStatusClass = (status) => {
+    if (status === "completed") {
+      return "bg-green-50 text-green-700 border-green-200";
+    }
+
+    if (status === "in-progress") {
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    }
+
+    return "bg-slate-100 text-slate-700 border-slate-200";
+  };
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
 
-      {/* =====================================
-          HEADER
-      ===================================== */}
+      {/* ================= HEADER ================= */}
 
-      <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
 
         <div>
-          <p className="text-sm font-semibold text-blue-600 mb-1">
-            PRODUCTIVITY
-          </p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-blue-600 font-bold text-sm tracking-wide">
+              PRODUCTIVITY
+            </span>
 
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-            Tasks
+            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+          </div>
+
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
+            Task Management
           </h1>
 
-          <p className="text-gray-500 mt-2">
-            Manage tasks, follow-ups, priorities and deadlines.
+          <p className="text-slate-500 mt-2">
+            Stay organized and manage your
+            priorities, follow-ups and deadlines.
           </p>
         </div>
 
-        <div className="bg-blue-50 border border-blue-100 px-4 py-3 rounded-xl">
-          <p className="text-sm text-blue-600">
-            Total Tasks
+        <div className="bg-white border border-slate-200 rounded-2xl px-6 py-4 shadow-sm">
+
+          <p className="text-sm text-slate-500">
+            Task Completion
           </p>
 
-          <p className="text-2xl font-bold text-blue-700">
-            {totalTasks}
-          </p>
+          <div className="flex items-end gap-2 mt-1">
+
+            <p className="text-3xl font-bold text-slate-900">
+              {statistics.total === 0
+                ? 0
+                : Math.round(
+                    (statistics.completed /
+                      statistics.total) *
+                      100
+                  )}
+              %
+            </p>
+
+            <p className="text-sm text-slate-400 mb-1">
+              completed
+            </p>
+
+          </div>
+
         </div>
 
       </div>
 
-      {/* =====================================
-          SUCCESS / ERROR
-      ===================================== */}
+      {/* ================= ALERTS ================= */}
 
       {message && (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4 text-green-700">
-          <span className="text-lg">✓</span>
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-green-700">
+
+          <span className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center font-bold">
+            ✓
+          </span>
+
           <span className="font-medium">
             {message}
           </span>
+
         </div>
       )}
 
       {error && (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
-          <span className="text-lg">!</span>
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+
+          <span className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center font-bold">
+            !
+          </span>
+
           <span className="font-medium">
             {error}
           </span>
+
         </div>
       )}
 
-      {/* =====================================
-          STATISTICS
-      ===================================== */}
+      {/* ================= STATS ================= */}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-sm font-medium text-gray-500">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+
+          <p className="text-sm font-medium text-slate-500">
             Total Tasks
           </p>
 
-          <p className="text-3xl font-bold text-gray-900 mt-2">
-            {totalTasks}
+          <p className="text-3xl font-bold text-slate-900 mt-2">
+            {statistics.total}
           </p>
 
-          <p className="text-sm text-gray-400 mt-2">
-            All tasks in your CRM
+          <p className="text-xs text-slate-400 mt-2">
+            All your tasks
           </p>
+
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-sm font-medium text-gray-500">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+
+          <p className="text-sm font-medium text-slate-500">
             Pending
           </p>
 
-          <p className="text-3xl font-bold text-gray-700 mt-2">
-            {pendingTasks}
+          <p className="text-3xl font-bold text-slate-700 mt-2">
+            {statistics.pending}
           </p>
 
-          <p className="text-sm text-gray-400 mt-2">
+          <p className="text-xs text-slate-400 mt-2">
             Awaiting action
           </p>
+
         </div>
 
-        <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+
           <p className="text-sm font-medium text-blue-600">
             In Progress
           </p>
 
           <p className="text-3xl font-bold text-blue-700 mt-2">
-            {inProgressTasks}
+            {statistics.inProgress}
           </p>
 
-          <p className="text-sm text-gray-400 mt-2">
-            Currently being worked on
+          <p className="text-xs text-blue-500 mt-2">
+            Currently active
           </p>
+
         </div>
 
-        <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-5">
+        <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
+
           <p className="text-sm font-medium text-green-600">
             Completed
           </p>
 
           <p className="text-3xl font-bold text-green-700 mt-2">
-            {completedTasks}
+            {statistics.completed}
           </p>
 
-          <p className="text-sm text-gray-400 mt-2">
+          <p className="text-xs text-green-500 mt-2">
             Successfully finished
           </p>
+
+        </div>
+
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-5">
+
+          <p className="text-sm font-medium text-red-600">
+            Overdue
+          </p>
+
+          <p className="text-3xl font-bold text-red-700 mt-2">
+            {statistics.overdue}
+          </p>
+
+          <p className="text-xs text-red-500 mt-2">
+            Needs attention
+          </p>
+
         </div>
 
       </div>
 
-      {/* =====================================
-          ADD / EDIT FORM
-      ===================================== */}
+      {/* ================= FORM ================= */}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-8 overflow-hidden">
 
-        <div className="px-6 py-5 border-b border-gray-100">
+        <div className="px-6 py-5 border-b border-slate-100">
 
-          <h2 className="text-xl font-bold text-gray-900">
-            {editingId
-              ? "Edit Task"
-              : "Create New Task"}
-          </h2>
+          <div className="flex items-center gap-3">
 
-          <p className="text-sm text-gray-500 mt-1">
-            {editingId
-              ? "Update the details of this task."
-              : "Add a new task and link it with a customer or deal."}
-          </p>
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+              {editingId ? "✎" : "+"}
+            </div>
+
+            <div>
+
+              <h2 className="text-xl font-bold text-slate-900">
+                {editingId
+                  ? "Edit Task"
+                  : "Create New Task"}
+              </h2>
+
+              <p className="text-sm text-slate-500">
+                {editingId
+                  ? "Update task information and progress."
+                  : "Create a task and assign its priority and deadline."}
+              </p>
+
+            </div>
+
+          </div>
 
         </div>
 
@@ -498,28 +686,27 @@ const Tasks = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-            {/* Title */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Task Title *
               </label>
 
               <input
                 type="text"
                 name="title"
-                placeholder="e.g. Follow up with client"
+                placeholder="Follow up with customer"
                 value={form.title}
                 onChange={handleChange}
                 required
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
+
             </div>
 
-            {/* Due Date */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Due Date *
               </label>
 
@@ -529,14 +716,14 @@ const Tasks = () => {
                 value={form.dueDate}
                 onChange={handleChange}
                 required
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
+
             </div>
 
-            {/* Customer */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Customer
               </label>
 
@@ -544,31 +731,34 @@ const Tasks = () => {
                 name="customer"
                 value={form.customer}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 bg-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
+
                 <option value="">
                   No Customer
                 </option>
 
-                {customers.map((customer) => (
-                  <option
-                    key={customer._id}
-                    value={customer._id}
-                  >
-                    {customer.name}
-                    {customer.company
-                      ? ` - ${customer.company}`
-                      : ""}
-                  </option>
-                ))}
+                {customers.map(
+                  (customer) => (
+                    <option
+                      key={customer._id}
+                      value={customer._id}
+                    >
+                      {customer.name}
+                      {customer.company
+                        ? ` - ${customer.company}`
+                        : ""}
+                    </option>
+                  )
+                )}
 
               </select>
+
             </div>
 
-            {/* Deal */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Deal
               </label>
 
@@ -576,8 +766,9 @@ const Tasks = () => {
                 name="deal"
                 value={form.deal}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 bg-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
+
                 <option value="">
                   No Deal
                 </option>
@@ -592,12 +783,12 @@ const Tasks = () => {
                 ))}
 
               </select>
+
             </div>
 
-            {/* Priority */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Priority
               </label>
 
@@ -605,27 +796,28 @@ const Tasks = () => {
                 name="priority"
                 value={form.priority}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 bg-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
+
                 <option value="low">
-                  Low
+                  🟢 Low Priority
                 </option>
 
                 <option value="medium">
-                  Medium
+                  🟡 Medium Priority
                 </option>
 
                 <option value="high">
-                  High
+                  🔴 High Priority
                 </option>
 
               </select>
+
             </div>
 
-            {/* Status */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Status
               </label>
 
@@ -633,8 +825,9 @@ const Tasks = () => {
                 name="status"
                 value={form.status}
                 onChange={handleChange}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 bg-white outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
+
                 <option value="pending">
                   Pending
                 </option>
@@ -648,37 +841,34 @@ const Tasks = () => {
                 </option>
 
               </select>
-            </div>
 
-            {/* Description */}
+            </div>
 
             <div className="md:col-span-2">
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Description
               </label>
 
               <textarea
                 name="description"
-                placeholder="Add details about this task..."
+                placeholder="Add task details, notes or instructions..."
                 value={form.description}
                 onChange={handleChange}
                 rows="4"
-                className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
 
             </div>
 
           </div>
 
-          {/* Actions */}
-
-          <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t border-gray-100">
+          <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t border-slate-100">
 
             <button
               type="submit"
               disabled={submitting}
-              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting
                 ? "Saving..."
@@ -692,7 +882,7 @@ const Tasks = () => {
                 type="button"
                 onClick={handleCancel}
                 disabled={submitting}
-                className="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition"
+                className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition"
               >
                 Cancel
               </button>
@@ -704,49 +894,49 @@ const Tasks = () => {
 
       </div>
 
-      {/* =====================================
-          TASK LIST
-      ===================================== */}
+      {/* ================= TASK LIST ================= */}
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
-        {/* List Header */}
+        <div className="p-6 border-b border-slate-100">
 
-        <div className="p-6 border-b border-gray-100">
-
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
 
             <div>
 
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-slate-900">
                 Your Tasks
               </h2>
 
-              <p className="text-sm text-gray-500 mt-1">
-                Showing {filteredTasks.length} of {totalTasks} tasks
+              <p className="text-sm text-slate-500 mt-1">
+                Showing {filteredTasks.length} of{" "}
+                {statistics.total} tasks
               </p>
 
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
               <input
                 type="text"
-                placeholder="Search tasks..."
+                placeholder="🔍 Search tasks..."
                 value={search}
                 onChange={(e) =>
                   setSearch(e.target.value)
                 }
-                className="w-full sm:w-64 rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="sm:col-span-3 xl:col-span-1 xl:w-64 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
 
               <select
                 value={statusFilter}
                 onChange={(e) =>
-                  setStatusFilter(e.target.value)
+                  setStatusFilter(
+                    e.target.value
+                  )
                 }
-                className="rounded-xl border border-gray-300 px-4 py-3 bg-white outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
+
                 <option value="all">
                   All Status
                 </option>
@@ -765,186 +955,256 @@ const Tasks = () => {
 
               </select>
 
+              <select
+                value={priorityFilter}
+                onChange={(e) =>
+                  setPriorityFilter(
+                    e.target.value
+                  )
+                }
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              >
+
+                <option value="all">
+                  All Priorities
+                </option>
+
+                <option value="high">
+                  High
+                </option>
+
+                <option value="medium">
+                  Medium
+                </option>
+
+                <option value="low">
+                  Low
+                </option>
+
+              </select>
+
             </div>
 
           </div>
 
         </div>
 
-        {/* Loading */}
+        {/* LOADING */}
 
         {loading && (
-          <div className="p-12 text-center">
+          <div className="p-16 text-center">
 
-            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+            <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
 
-            <p className="text-gray-500">
+            <p className="text-slate-500">
               Loading your tasks...
             </p>
 
           </div>
         )}
 
-        {/* Empty State */}
+        {/* EMPTY */}
 
-        {!loading && filteredTasks.length === 0 && (
-          <div className="p-12 text-center">
+        {!loading &&
+          filteredTasks.length === 0 && (
+            <div className="p-16 text-center">
 
-            <div className="text-5xl mb-4">
-              ✓
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-3xl">
+                ✓
+              </div>
+
+              <h3 className="text-lg font-bold text-slate-900 mt-5">
+                No tasks found
+              </h3>
+
+              <p className="text-slate-500 mt-2">
+                {search ||
+                statusFilter !== "all" ||
+                priorityFilter !== "all"
+                  ? "Try changing your search or filters."
+                  : "Create your first task to start managing your work."}
+              </p>
+
             </div>
+          )}
 
-            <h3 className="text-lg font-bold text-gray-900">
-              No tasks found
-            </h3>
+        {/* TASK CARDS */}
 
-            <p className="text-gray-500 mt-2">
-              {search || statusFilter !== "all"
-                ? "Try changing your search or filter."
-                : "Create your first task to get started."}
-            </p>
+        {!loading &&
+          filteredTasks.length > 0 && (
+            <div className="divide-y divide-slate-100">
 
-          </div>
-        )}
+              {filteredTasks.map((task) => {
 
-        {/* Task Cards */}
+                const dueInfo =
+                  getDueDateInfo(
+                    task.dueDate,
+                    task.status
+                  );
 
-        {!loading && filteredTasks.length > 0 && (
-          <div className="divide-y divide-gray-100">
+                return (
+                  <div
+                    key={task._id}
+                    className="p-6 hover:bg-slate-50 transition"
+                  >
 
-            {filteredTasks.map((task) => {
+                    <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
 
-              const dueInfo = getDueDateInfo(
-                task.dueDate,
-                task.status
-              );
+                      <div className="flex-1 min-w-0">
 
-              return (
-                <div
-                  key={task._id}
-                  className="p-6 hover:bg-gray-50 transition"
-                >
+                        {/* TITLE */}
 
-                  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
+                        <div className="flex flex-wrap items-center gap-2">
 
-                    {/* Task Content */}
+                          <h3 className="text-lg font-bold text-slate-900">
+                            {task.title}
+                          </h3>
 
-                    <div className="flex-1 min-w-0">
+                          <span
+                            className={`px-3 py-1 rounded-full border text-xs font-semibold capitalize ${getPriorityClass(
+                              task.priority
+                            )}`}
+                          >
+                            {task.priority}
+                          </span>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-full border text-xs font-semibold ${getStatusClass(
+                              task.status
+                            )}`}
+                          >
+                            {task.status.replace(
+                              "-",
+                              " "
+                            )}
+                          </span>
 
-                        <h3 className="text-lg font-bold text-gray-900">
-                          {task.title}
-                        </h3>
-
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getPriorityClass(
-                            task.priority
-                          )}`}
-                        >
-                          {task.priority} priority
-                        </span>
-
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusClass(
-                            task.status
-                          )}`}
-                        >
-                          {task.status.replace(
-                            "-",
-                            " "
-                          )}
-                        </span>
-
-                      </div>
-
-                      {task.description && (
-                        <p className="text-gray-600 mt-3 leading-relaxed max-w-3xl">
-                          {task.description}
-                        </p>
-                      )}
-
-                      {/* Metadata */}
-
-                      <div className="flex flex-wrap gap-x-6 gap-y-3 mt-4 text-sm">
-
-                        <div>
-                          <p className="text-gray-400">
-                            Due Date
-                          </p>
-
-                          <p className={dueInfo.className}>
-                            {dueInfo.label}
-                          </p>
                         </div>
 
-                        {task.customer && (
-                          <div>
-                            <p className="text-gray-400">
-                              Customer
-                            </p>
+                        {/* DESCRIPTION */}
 
-                            <p className="font-medium text-gray-700">
-                              {task.customer.name}
-                            </p>
-                          </div>
+                        {task.description && (
+                          <p className="text-slate-600 mt-3 leading-relaxed max-w-3xl">
+                            {task.description}
+                          </p>
                         )}
 
-                        {task.deal && (
-                          <div>
-                            <p className="text-gray-400">
-                              Deal
-                            </p>
+                        {/* METADATA */}
 
-                            <p className="font-medium text-gray-700">
-                              {task.deal.title}
-                            </p>
+                        <div className="flex flex-wrap gap-3 mt-5">
+
+                          <span
+                            className={`px-3 py-2 rounded-xl text-xs font-semibold ${dueInfo.className}`}
+                          >
+                            📅 {dueInfo.label}
+                          </span>
+
+                          {task.customer?.name && (
+                            <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-medium">
+                              👤 {task.customer.name}
+                            </span>
+                          )}
+
+                          {task.deal?.title && (
+                            <span className="px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-medium">
+                              💼 {task.deal.title}
+                            </span>
+                          )}
+
+                        </div>
+
+                        {/* QUICK STATUS */}
+
+                        {task.status !==
+                          "completed" && (
+                          <div className="flex flex-wrap gap-2 mt-5">
+
+                            {task.status ===
+                              "pending" && (
+                              <button
+                                onClick={() =>
+                                  updateTaskStatus(
+                                    task,
+                                    "in-progress"
+                                  )
+                                }
+                                disabled={
+                                  updatingStatusId ===
+                                  task._id
+                                }
+                                className="text-xs px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition"
+                              >
+                                Start Task →
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() =>
+                                updateTaskStatus(
+                                  task,
+                                  "completed"
+                                )
+                              }
+                              disabled={
+                                updatingStatusId ===
+                                task._id
+                              }
+                              className="text-xs px-3 py-2 rounded-lg bg-green-50 text-green-700 font-semibold hover:bg-green-100 transition"
+                            >
+                              {updatingStatusId ===
+                              task._id
+                                ? "Updating..."
+                                : "✓ Mark Completed"}
+                            </button>
+
                           </div>
                         )}
 
                       </div>
 
-                    </div>
+                      {/* ACTIONS */}
 
-                    {/* Actions */}
+                      <div className="flex items-center gap-3 xl:shrink-0">
 
-                    <div className="flex items-center gap-3 xl:self-start">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEdit(task)
+                          }
+                          className="px-4 py-2.5 border border-blue-200 text-blue-700 font-medium rounded-xl hover:bg-blue-50 transition"
+                        >
+                          Edit
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleEdit(task)
-                        }
-                        className="px-4 py-2.5 border border-blue-200 text-blue-700 font-medium rounded-xl hover:bg-blue-50 transition"
-                      >
-                        Edit
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDelete(
+                              task._id
+                            )
+                          }
+                          disabled={
+                            deletingId ===
+                            task._id
+                          }
+                          className="px-4 py-2.5 border border-red-200 text-red-600 font-medium rounded-xl hover:bg-red-50 disabled:opacity-50 transition"
+                        >
+                          {deletingId ===
+                          task._id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDelete(task._id)
-                        }
-                        disabled={
-                          deletingId === task._id
-                        }
-                        className="px-4 py-2.5 border border-red-200 text-red-600 font-medium rounded-xl hover:bg-red-50 disabled:opacity-50 transition"
-                      >
-                        {deletingId === task._id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
+                      </div>
 
                     </div>
 
                   </div>
+                );
+              })}
 
-                </div>
-              );
-            })}
-
-          </div>
-        )}
+            </div>
+          )}
 
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   getDeals,
@@ -24,14 +24,22 @@ function Deals() {
 
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success");
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const [showForm, setShowForm] = useState(false);
+
+  // AI Risk
   const [aiLoadingId, setAiLoadingId] = useState(null);
   const [aiDeal, setAiDeal] = useState(null);
   const [aiError, setAiError] = useState("");
 
-  // Load deals
+  // =====================================================
+  // LOAD DEALS
+  // =====================================================
+
   const loadDeals = async () => {
     try {
       const data = await getDeals();
@@ -39,6 +47,7 @@ function Deals() {
     } catch (error) {
       console.error("LOAD DEALS ERROR:", error);
 
+      setMessageType("error");
       setMessage(
         error.response?.data?.message ||
           "Failed to load deals"
@@ -46,7 +55,10 @@ function Deals() {
     }
   };
 
-  // Load customers
+  // =====================================================
+  // LOAD CUSTOMERS
+  // =====================================================
+
   const loadCustomers = async () => {
     try {
       const data = await getCustomers();
@@ -54,6 +66,7 @@ function Deals() {
     } catch (error) {
       console.error("LOAD CUSTOMERS ERROR:", error);
 
+      setMessageType("error");
       setMessage(
         error.response?.data?.message ||
           "Failed to load customers"
@@ -66,12 +79,20 @@ function Deals() {
     loadCustomers();
   }, []);
 
+  // =====================================================
+  // FORM CHANGE
+  // =====================================================
+
   const handleChange = (e) => {
     setForm({
       ...form,
       [e.target.name]: e.target.value,
     });
   };
+
+  // =====================================================
+  // RESET FORM
+  // =====================================================
 
   const resetForm = () => {
     setForm({
@@ -85,7 +106,25 @@ function Deals() {
     setEditingId(null);
   };
 
-  // Create / Update
+  // =====================================================
+  // OPEN CREATE FORM
+  // =====================================================
+
+  const handleAddDeal = () => {
+    resetForm();
+    setMessage("");
+    setShowForm(true);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  // =====================================================
+  // CREATE / UPDATE DEAL
+  // =====================================================
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -97,16 +136,24 @@ function Deals() {
 
       if (editingId) {
         await updateDeal(editingId, dealData);
+
+        setMessageType("success");
         setMessage("Deal updated successfully!");
       } else {
         await createDeal(dealData);
+
+        setMessageType("success");
         setMessage("Deal created successfully!");
       }
 
       resetForm();
+      setShowForm(false);
+
       await loadDeals();
     } catch (error) {
       console.error("SAVE DEAL ERROR:", error);
+
+      setMessageType("error");
 
       setMessage(
         error.response?.data?.message ||
@@ -117,7 +164,10 @@ function Deals() {
     }
   };
 
-  // Edit
+  // =====================================================
+  // EDIT DEAL
+  // =====================================================
+
   const handleEdit = (deal) => {
     setEditingId(deal._id);
 
@@ -133,6 +183,7 @@ function Deals() {
     });
 
     setMessage("");
+    setShowForm(true);
 
     window.scrollTo({
       top: 0,
@@ -140,19 +191,35 @@ function Deals() {
     });
   };
 
+  // =====================================================
+  // CANCEL EDIT
+  // =====================================================
+
   const handleCancelEdit = () => {
     resetForm();
-    setMessage("");
+    setShowForm(false);
   };
 
-  // Delete
+  // =====================================================
+  // DELETE DEAL
+  // =====================================================
+
   const handleDelete = async (id) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this deal?"
+    );
+
+    if (!confirmed) return;
+
     try {
       await deleteDeal(id);
 
+      setMessageType("success");
       setMessage("Deal deleted successfully!");
-
-      if (aiDeal?.deal?.id === id) {
+      
+      if (aiDeal?.deal?.id === id ||
+          aiDeal?.deal?.id === id
+      ) {
         setAiDeal(null);
         setAiError("");
       }
@@ -161,6 +228,8 @@ function Deals() {
     } catch (error) {
       console.error("DELETE DEAL ERROR:", error);
 
+      setMessageType("error");
+
       setMessage(
         error.response?.data?.message ||
           "Failed to delete deal"
@@ -168,7 +237,10 @@ function Deals() {
     }
   };
 
-  // AI Risk
+  // =====================================================
+  // AI DEAL RISK
+  // =====================================================
+
   const handleAIRisk = async (dealId) => {
     try {
       setAiLoadingId(dealId);
@@ -180,10 +252,12 @@ function Deals() {
       setAiDeal(data);
 
       setTimeout(() => {
-        window.scrollTo({
-          top: 300,
-          behavior: "smooth",
-        });
+        document
+          .getElementById("ai-risk-panel")
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
       }, 100);
     } catch (error) {
       console.error("AI DEAL RISK ERROR:", error);
@@ -197,50 +271,110 @@ function Deals() {
     }
   };
 
+  // =====================================================
+  // CLOSE AI PANEL
+  // =====================================================
+
   const closeAIRisk = () => {
     setAiDeal(null);
     setAiError("");
   };
 
-  // Filter
-  const filteredDeals = deals.filter((deal) => {
-    const searchText = search.toLowerCase();
+  // =====================================================
+  // FILTER DEALS
+  // =====================================================
 
-    const matchesSearch =
-      deal.title?.toLowerCase().includes(searchText) ||
-      deal.customer?.name
-        ?.toLowerCase()
-        .includes(searchText) ||
-      deal.customer?.company
-        ?.toLowerCase()
-        .includes(searchText);
+  const filteredDeals = useMemo(() => {
+    return deals.filter((deal) => {
+      const searchText = search.toLowerCase();
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      deal.status === statusFilter;
+      const matchesSearch =
+        deal.title
+          ?.toLowerCase()
+          .includes(searchText) ||
+        deal.customer?.name
+          ?.toLowerCase()
+          .includes(searchText) ||
+        deal.customer?.company
+          ?.toLowerCase()
+          .includes(searchText);
 
-    return matchesSearch && matchesStatus;
-  });
+      const matchesStatus =
+        statusFilter === "all" ||
+        deal.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [deals, search, statusFilter]);
+
+  // =====================================================
+  // DEAL STATISTICS
+  // =====================================================
+
+  const statistics = useMemo(() => {
+    const totalValue = deals.reduce(
+      (sum, deal) =>
+        sum + Number(deal.value || 0),
+      0
+    );
+
+    const prospecting = deals.filter(
+      (deal) =>
+        deal.status === "prospecting"
+    ).length;
+
+    const negotiation = deals.filter(
+      (deal) =>
+        deal.status === "negotiation"
+    ).length;
+
+    const wonValue = deals
+      .filter(
+        (deal) =>
+          deal.status === "won"
+      )
+      .reduce(
+        (sum, deal) =>
+          sum + Number(deal.value || 0),
+        0
+      );
+
+    return {
+      total: deals.length,
+      totalValue,
+      prospecting,
+      negotiation,
+      wonValue,
+    };
+  }, [deals]);
+
+  // =====================================================
+  // STATUS STYLE
+  // =====================================================
 
   const getStatusClass = (status) => {
     if (status === "prospecting") {
-      return "bg-blue-50 text-blue-700 border-blue-100";
+      return "bg-blue-50 text-blue-700 border-blue-200";
     }
 
     if (status === "negotiation") {
-      return "bg-yellow-50 text-yellow-700 border-yellow-100";
+      return "bg-amber-50 text-amber-700 border-amber-200";
     }
 
     if (status === "won") {
-      return "bg-green-50 text-green-700 border-green-100";
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
     }
 
     if (status === "lost") {
-      return "bg-red-50 text-red-700 border-red-100";
+      return "bg-red-50 text-red-700 border-red-200";
     }
 
-    return "bg-gray-50 text-gray-700 border-gray-200";
+    return "bg-slate-50 text-slate-700 border-slate-200";
   };
+
+  // =====================================================
+  // AI RISK STYLE
+  // =====================================================
 
   const getRiskClass = (risk) => {
     if (risk === "High") {
@@ -248,11 +382,15 @@ function Deals() {
     }
 
     if (risk === "Medium") {
-      return "bg-yellow-100 text-yellow-700";
+      return "bg-amber-100 text-amber-700";
     }
 
-    return "bg-green-100 text-green-700";
+    return "bg-emerald-100 text-emerald-700";
   };
+
+  // =====================================================
+  // CURRENCY
+  // =====================================================
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("en-IN", {
@@ -262,366 +400,383 @@ function Deals() {
     }).format(value || 0);
   };
 
-  // Dashboard statistics
-  const totalPipelineValue = deals.reduce(
-    (sum, deal) => sum + Number(deal.value || 0),
-    0
-  );
-
-  const wonDeals = deals.filter(
-    (deal) => deal.status === "won"
-  );
-
-  const wonValue = wonDeals.reduce(
-    (sum, deal) => sum + Number(deal.value || 0),
-    0
-  );
-
-  const activeDeals = deals.filter(
-    (deal) =>
-      deal.status === "prospecting" ||
-      deal.status === "negotiation"
-  );
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="min-h-full bg-slate-50 p-4 md:p-6 lg:p-8">
 
       {/* HEADER */}
 
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+      <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
         <div>
           <div className="flex items-center gap-3">
 
-            <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-2xl shadow">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-2xl shadow-lg shadow-blue-200">
               💼
             </div>
 
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Deals
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                Deals Pipeline
               </h1>
 
-              <p className="text-gray-500 mt-1">
-                Track your sales pipeline and manage opportunities.
+              <p className="mt-1 text-sm text-slate-500 md:text-base">
+                Track opportunities and manage your sales pipeline.
               </p>
             </div>
 
           </div>
         </div>
 
-        <div className="text-left lg:text-right">
-
-          <p className="text-sm text-gray-500">
-            Total Pipeline
-          </p>
-
-          <p className="text-2xl font-bold text-blue-600">
-            {formatCurrency(totalPipelineValue)}
-          </p>
-
-        </div>
-
-      </div>
-
-
-      {/* SUMMARY CARDS */}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-
-          <p className="text-sm text-gray-500">
-            Total Deals
-          </p>
-
-          <p className="text-3xl font-bold text-gray-900 mt-2">
-            {deals.length}
-          </p>
-
-          <p className="text-sm text-gray-400 mt-2">
-            All opportunities
-          </p>
-
-        </div>
-
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-
-          <p className="text-sm text-gray-500">
-            Active Pipeline
-          </p>
-
-          <p className="text-3xl font-bold text-blue-600 mt-2">
-            {activeDeals.length}
-          </p>
-
-          <p className="text-sm text-gray-400 mt-2">
-            Prospecting + negotiation
-          </p>
-
-        </div>
-
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-
-          <p className="text-sm text-gray-500">
-            Won Deals
-          </p>
-
-          <p className="text-3xl font-bold text-green-600 mt-2">
-            {wonDeals.length}
-          </p>
-
-          <p className="text-sm text-gray-400 mt-2">
-            Successfully closed
-          </p>
-
-        </div>
-
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-
-          <p className="text-sm text-gray-500">
-            Won Value
-          </p>
-
-          <p className="text-2xl font-bold text-purple-600 mt-2">
-            {formatCurrency(wonValue)}
-          </p>
-
-          <p className="text-sm text-gray-400 mt-2">
-            Revenue closed
-          </p>
-
-        </div>
-
-      </div>
-
-
-      {/* ADD / EDIT FORM */}
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
-
-        <div className="px-6 py-5 border-b bg-gray-50 flex items-center justify-between">
-
-          <div>
-
-            <h2 className="text-xl font-bold text-gray-900">
-              {editingId
-                ? "Edit Deal"
-                : "Create New Deal"}
-            </h2>
-
-            <p className="text-sm text-gray-500 mt-1">
-              {editingId
-                ? "Update the details of this opportunity."
-                : "Add a new opportunity to your sales pipeline."}
-            </p>
-
-          </div>
-
-          {editingId && (
-            <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
-              Editing
-            </span>
-          )}
-
-        </div>
-
-
-        <form
-          onSubmit={handleSubmit}
-          className="p-6"
+        <button
+          type="button"
+          onClick={handleAddDeal}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 hover:shadow-xl"
         >
+          <span className="text-lg">+</span>
+          Create Deal
+        </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      </div>
 
-            <div>
+      {/* STATISTICS */}
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Deal Title
-              </label>
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-              <input
-                name="title"
-                placeholder="e.g. Website Development Project"
-                value={form.title}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-              />
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-            </div>
-
+          <div className="flex items-center justify-between">
 
             <div>
+              <p className="text-sm font-medium text-slate-500">
+                Total Deals
+              </p>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Deal Value
-              </label>
-
-              <input
-                name="value"
-                type="number"
-                min="0"
-                placeholder="Enter amount"
-                value={form.value}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-              />
-
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {statistics.total}
+              </p>
             </div>
 
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Customer
-              </label>
-
-              <select
-                name="customer"
-                value={form.customer}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-              >
-
-                <option value="">
-                  Select Customer
-                </option>
-
-                {customers.map((customer) => (
-                  <option
-                    key={customer._id}
-                    value={customer._id}
-                  >
-                    {customer.name}
-                    {customer.company
-                      ? ` - ${customer.company}`
-                      : ""}
-                  </option>
-                ))}
-
-              </select>
-
-            </div>
-
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Deal Status
-              </label>
-
-              <select
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-              >
-
-                <option value="prospecting">
-                  Prospecting
-                </option>
-
-                <option value="negotiation">
-                  Negotiation
-                </option>
-
-                <option value="won">
-                  Won
-                </option>
-
-                <option value="lost">
-                  Lost
-                </option>
-
-              </select>
-
-            </div>
-
-
-            <div className="md:col-span-2">
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notes
-              </label>
-
-              <textarea
-                name="notes"
-                placeholder="Add additional details about this deal..."
-                value={form.notes}
-                onChange={handleChange}
-                rows="3"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none resize-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-              />
-
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-xl">
+              💼
             </div>
 
           </div>
 
+        </div>
 
-          <div className="flex flex-wrap gap-3 mt-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Pipeline Value
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {formatCurrency(
+                  statistics.totalValue
+                )}
+              </p>
+            </div>
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-xl">
+              💰
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                In Negotiation
+              </p>
+
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {statistics.negotiation}
+              </p>
+            </div>
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-xl">
+              🤝
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Won Value
+              </p>
+
+              <p className="mt-2 text-2xl font-bold text-emerald-600">
+                {formatCurrency(
+                  statistics.wonValue
+                )}
+              </p>
+            </div>
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-xl">
+              🏆
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* CREATE / EDIT FORM */}
+
+      {showForm && (
+
+        <div className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+          <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                {editingId
+                  ? "Edit Deal"
+                  : "Create New Deal"}
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                {editingId
+                  ? "Update the information for this opportunity."
+                  : "Add a new opportunity to your sales pipeline."}
+              </p>
+            </div>
 
             <button
-              type="submit"
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition shadow-sm"
+              type="button"
+              onClick={handleCancelEdit}
+              className="text-sm font-medium text-slate-500 hover:text-slate-900"
             >
-              {editingId
-                ? "Update Deal"
-                : "+ Create Deal"}
+              ✕ Close
             </button>
 
+          </div>
 
-            {editingId && (
+          <form
+            onSubmit={handleSubmit}
+            className="p-6"
+          >
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+              {/* TITLE */}
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Deal Title
+                </label>
+
+                <input
+                  name="title"
+                  placeholder="Example: Website Development Project"
+                  value={form.title}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </div>
+
+              {/* VALUE */}
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Deal Value (₹)
+                </label>
+
+                <input
+                  name="value"
+                  type="number"
+                  min="0"
+                  placeholder="50000"
+                  value={form.value}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+              </div>
+
+              {/* CUSTOMER */}
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Customer
+                </label>
+
+                <select
+                  name="customer"
+                  value={form.customer}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="">
+                    Select a customer
+                  </option>
+
+                  {customers.map((customer) => (
+                    <option
+                      key={customer._id}
+                      value={customer._id}
+                    >
+                      {customer.name}
+                      {customer.company
+                        ? ` — ${customer.company}`
+                        : ""}
+                    </option>
+                  ))}
+
+                </select>
+              </div>
+
+              {/* STATUS */}
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Deal Stage
+                </label>
+
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                >
+                  <option value="prospecting">
+                    Prospecting
+                  </option>
+
+                  <option value="negotiation">
+                    Negotiation
+                  </option>
+
+                  <option value="won">
+                    Won
+                  </option>
+
+                  <option value="lost">
+                    Lost
+                  </option>
+                </select>
+              </div>
+
+              {/* NOTES */}
+
+              <div className="md:col-span-2">
+
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Notes
+                </label>
+
+                <textarea
+                  name="notes"
+                  placeholder="Add important details about this deal..."
+                  value={form.notes}
+                  onChange={handleChange}
+                  rows="4"
+                  className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                />
+
+              </div>
+
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-100 pt-5">
+
+              <button
+                type="submit"
+                className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              >
+                {editingId
+                  ? "Save Changes"
+                  : "Create Deal"}
+              </button>
 
               <button
                 type="button"
                 onClick={handleCancelEdit}
-                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
+                className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Cancel
               </button>
 
-            )}
+            </div>
 
-          </div>
+          </form>
 
-        </form>
+        </div>
 
-      </div>
-
+      )}
 
       {/* MESSAGE */}
 
       {message && (
 
-        <div className="mb-6 px-5 py-4 bg-blue-50 border border-blue-100 text-blue-700 rounded-xl">
-          {message}
+        <div
+          className={`mb-6 flex items-center justify-between rounded-xl border px-5 py-4 ${
+            messageType === "error"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+
+          <span className="font-medium">
+            {messageType === "error"
+              ? "⚠️ "
+              : "✓ "}
+            {message}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setMessage("")}
+            className="ml-4 text-lg"
+          >
+            ✕
+          </button>
+
         </div>
 
       )}
 
-
-      {/* AI DEAL RISK */}
+      {/* AI RISK PANEL */}
 
       {(aiDeal || aiError) && (
 
-        <div className="mb-8 bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
+        <div
+          id="ai-risk-panel"
+          className="mb-8 overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm"
+        >
 
-          <div className="px-6 py-5 bg-gradient-to-r from-purple-50 to-white flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-purple-100 bg-purple-50 px-6 py-5">
 
             <div>
 
-              <h2 className="text-xl font-bold text-gray-900">
-                🤖 AI Deal Risk Analysis
+              <h2 className="text-xl font-bold text-purple-950">
+                🤖 AI Deal Intelligence
               </h2>
 
-              <p className="text-sm text-gray-500 mt-1">
-                AI-powered opportunity assessment
+              <p className="mt-1 text-sm text-purple-700">
+                AI-powered risk and conversion analysis.
               </p>
 
             </div>
@@ -629,56 +784,57 @@ function Deals() {
             <button
               type="button"
               onClick={closeAIRisk}
-              className="w-9 h-9 rounded-lg hover:bg-white text-gray-500 hover:text-gray-900 transition"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-purple-700 transition hover:bg-purple-100"
             >
               ✕
             </button>
 
           </div>
 
-
           <div className="p-6">
 
             {aiError && (
 
-              <div className="bg-red-50 border border-red-100 text-red-700 px-5 py-4 rounded-xl">
-                {aiError}
+              <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+                ⚠️ {aiError}
               </div>
 
             )}
-
 
             {aiDeal && (
 
               <>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                {/* OVERVIEW */}
 
-                  <div className="bg-purple-50 rounded-xl p-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
-                    <p className="text-sm text-gray-500">
+                  <div className="rounded-xl border border-slate-200 bg-white p-5">
+
+                    <p className="text-sm font-medium text-slate-500">
                       Deal
                     </p>
 
-                    <p className="font-bold text-lg text-gray-900 mt-2">
+                    <p className="mt-2 text-lg font-bold text-slate-900">
                       {aiDeal.deal.title}
                     </p>
 
-                    <p className="text-purple-700 font-semibold mt-2">
-                      {formatCurrency(aiDeal.deal.value)}
+                    <p className="mt-1 font-semibold text-blue-600">
+                      {formatCurrency(
+                        aiDeal.deal.value
+                      )}
                     </p>
 
                   </div>
 
+                  <div className="rounded-xl border border-slate-200 bg-white p-5">
 
-                  <div className="bg-gray-50 rounded-xl p-5">
-
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Risk Level
                     </p>
 
                     <span
-                      className={`inline-block mt-3 px-4 py-1.5 rounded-full text-sm font-semibold ${getRiskClass(
+                      className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${getRiskClass(
                         aiDeal.analysis.risk
                       )}`}
                     >
@@ -687,14 +843,13 @@ function Deals() {
 
                   </div>
 
+                  <div className="rounded-xl border border-slate-200 bg-white p-5">
 
-                  <div className="bg-blue-50 rounded-xl p-5">
-
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Win Probability
                     </p>
 
-                    <p className="text-4xl font-bold text-blue-700 mt-2">
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
                       {aiDeal.analysis.winProbability}%
                     </p>
 
@@ -702,32 +857,33 @@ function Deals() {
 
                 </div>
 
+                {/* PROBABILITY */}
 
-                <div className="mb-6 bg-gray-50 rounded-xl p-5">
+                <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5">
 
-                  <div className="flex justify-between mb-3">
+                  <div className="mb-3 flex items-center justify-between">
 
-                    <span className="text-sm font-semibold text-gray-700">
+                    <p className="font-semibold text-slate-800">
                       Probability of Winning
-                    </span>
+                    </p>
 
-                    <span className="font-bold text-purple-700">
+                    <p className="font-bold text-purple-600">
                       {aiDeal.analysis.winProbability}%
-                    </span>
+                    </p>
 
                   </div>
 
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-200">
 
                     <div
-                      className="bg-purple-600 h-3 rounded-full transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-purple-500 to-blue-600 transition-all duration-700"
                       style={{
                         width: `${Math.min(
-                          100,
                           Math.max(
-                            0,
-                            aiDeal.analysis.winProbability
-                          )
+                            aiDeal.analysis.winProbability,
+                            0
+                          ),
+                          100
                         )}%`,
                       }}
                     />
@@ -736,33 +892,31 @@ function Deals() {
 
                 </div>
 
+                {/* REASON */}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 p-5">
 
-                  <div className="bg-yellow-50 rounded-xl p-5">
+                  <h3 className="font-bold text-amber-900">
+                    🔎 Analysis
+                  </h3>
 
-                    <h3 className="font-bold text-yellow-900 mb-2">
-                      Why this assessment?
-                    </h3>
+                  <p className="mt-2 leading-relaxed text-amber-800">
+                    {aiDeal.analysis.reason}
+                  </p>
 
-                    <p className="text-yellow-800 leading-relaxed">
-                      {aiDeal.analysis.reason}
-                    </p>
+                </div>
 
-                  </div>
+                {/* RECOMMENDATION */}
 
+                <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-5">
 
-                  <div className="bg-blue-50 rounded-xl p-5">
+                  <h3 className="font-bold text-blue-900">
+                    💡 Recommended Action
+                  </h3>
 
-                    <h3 className="font-bold text-blue-900 mb-2">
-                      Recommended Action
-                    </h3>
-
-                    <p className="text-blue-800 leading-relaxed">
-                      {aiDeal.analysis.recommendation}
-                    </p>
-
-                  </div>
+                  <p className="mt-2 leading-relaxed text-blue-800">
+                    {aiDeal.analysis.recommendation}
+                  </p>
 
                 </div>
 
@@ -776,51 +930,61 @@ function Deals() {
 
       )}
 
-
       {/* DEAL LIST */}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-        <div className="p-6 border-b">
+        {/* LIST HEADER */}
 
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="border-b border-slate-100 p-5 md:p-6">
+
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
             <div>
 
-              <h2 className="text-xl font-bold text-gray-900">
-                Your Deals
+              <h2 className="text-xl font-bold text-slate-900">
+                All Deals
               </h2>
 
-              <p className="text-sm text-gray-500 mt-1">
-                Showing {filteredDeals.length} of {deals.length} deals
+              <p className="mt-1 text-sm text-slate-500">
+                {filteredDeals.length} of {deals.length} deals shown
               </p>
 
             </div>
 
+            <div className="flex flex-col gap-3 sm:flex-row">
 
-            <div className="flex flex-col sm:flex-row gap-3">
+              {/* SEARCH */}
 
-              <input
-                type="text"
-                placeholder="Search deals or customers..."
-                value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
-                className="border border-gray-300 rounded-xl px-4 py-2.5 w-full sm:w-64 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
-              />
+              <div className="relative">
 
+                <span className="absolute left-4 top-1/2 -translate-y-1/2">
+                  🔍
+                </span>
+
+                <input
+                  type="text"
+                  placeholder="Search deals..."
+                  value={search}
+                  onChange={(e) =>
+                    setSearch(e.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-4 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 sm:w-64"
+                />
+
+              </div>
+
+              {/* FILTER */}
 
               <select
                 value={statusFilter}
                 onChange={(e) =>
                   setStatusFilter(e.target.value)
                 }
-                className="border border-gray-300 rounded-xl px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-blue-200"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               >
-
                 <option value="all">
-                  All Status
+                  All Stages
                 </option>
 
                 <option value="prospecting">
@@ -847,139 +1011,141 @@ function Deals() {
 
         </div>
 
+        {/* EMPTY STATE */}
 
         {filteredDeals.length === 0 ? (
 
-          <div className="py-16 text-center">
+          <div className="px-6 py-16 text-center">
 
-            <div className="text-5xl mb-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-3xl">
               💼
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="mt-5 text-lg font-bold text-slate-800">
               No deals found
             </h3>
 
-            <p className="text-gray-500 mt-2">
-              Try changing your search or filters, or create a new deal.
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+              Try changing your search or filters, or create a new deal to start building your pipeline.
             </p>
+
+            <button
+              type="button"
+              onClick={handleAddDeal}
+              className="mt-5 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+            >
+              + Create Deal
+            </button>
 
           </div>
 
         ) : (
 
-          <div className="p-4 md:p-6 grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div className="divide-y divide-slate-100">
 
             {filteredDeals.map((deal) => (
 
               <div
                 key={deal._id}
-                className="border border-gray-200 rounded-2xl p-5 hover:shadow-md hover:border-gray-300 transition"
+                className="p-5 transition hover:bg-slate-50 md:p-6"
               >
 
-                <div className="flex justify-between items-start gap-4">
+                <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+
+                  {/* DEAL INFO */}
 
                   <div className="min-w-0">
 
-                    <h3 className="text-lg font-bold text-gray-900 truncate">
-                      {deal.title}
-                    </h3>
+                    <div className="flex flex-wrap items-center gap-3">
 
-                    <p className="text-2xl font-bold text-blue-600 mt-2">
+                      <h3 className="text-lg font-bold text-slate-900">
+                        {deal.title}
+                      </h3>
+
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${getStatusClass(
+                          deal.status
+                        )}`}
+                      >
+                        {deal.status}
+                      </span>
+
+                    </div>
+
+                    <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:flex-wrap sm:gap-x-6">
+
+                      <span>
+                        👤{" "}
+                        {deal.customer?.name ||
+                          "Unknown customer"}
+                      </span>
+
+                      {deal.customer?.company && (
+                        <span>
+                          🏢 {deal.customer.company}
+                        </span>
+                      )}
+
+                    </div>
+
+                    {deal.notes && (
+
+                      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
+                        {deal.notes}
+                      </p>
+
+                    )}
+
+                  </div>
+
+                  {/* VALUE + ACTIONS */}
+
+                  <div className="flex flex-col gap-4 xl:items-end">
+
+                    <p className="text-2xl font-bold text-slate-900">
                       {formatCurrency(deal.value)}
                     </p>
 
-                  </div>
+                    <div className="flex flex-wrap gap-2">
 
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAIRisk(deal._id)
+                        }
+                        disabled={
+                          aiLoadingId === deal._id
+                        }
+                        className="rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {aiLoadingId === deal._id
+                          ? "Analyzing..."
+                          : "🤖 AI Risk"}
+                      </button>
 
-                  <span
-                    className={`shrink-0 px-3 py-1.5 border rounded-full text-sm font-semibold capitalize ${getStatusClass(
-                      deal.status
-                    )}`}
-                  >
-                    {deal.status}
-                  </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleEdit(deal)
+                        }
+                        className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                      >
+                        ✏️ Edit
+                      </button>
 
-                </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete(deal._id)
+                        }
+                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                      >
+                        🗑 Delete
+                      </button>
 
-
-                <div className="mt-5 pt-4 border-t">
-
-                  <p className="text-sm text-gray-500">
-                    Customer
-                  </p>
-
-                  <p className="font-semibold text-gray-800 mt-1">
-                    {deal.customer?.name ||
-                      "Unknown customer"}
-                  </p>
-
-                  {deal.customer?.company && (
-
-                    <p className="text-sm text-gray-500 mt-1">
-                      {deal.customer.company}
-                    </p>
-
-                  )}
-
-                </div>
-
-
-                {deal.notes && (
-
-                  <div className="mt-4 bg-gray-50 rounded-xl p-4">
-
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                      Notes
-                    </p>
-
-                    <p className="text-sm text-gray-600">
-                      {deal.notes}
-                    </p>
+                    </div>
 
                   </div>
-
-                )}
-
-
-                <div className="flex flex-wrap gap-2 mt-5">
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleAIRisk(deal._id)
-                    }
-                    disabled={
-                      aiLoadingId === deal._id
-                    }
-                    className="px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition disabled:opacity-50"
-                  >
-                    {aiLoadingId === deal._id
-                      ? "Analyzing..."
-                      : "🤖 AI Risk"}
-                  </button>
-
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleEdit(deal)
-                    }
-                    className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-100 transition"
-                  >
-                    Edit
-                  </button>
-
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDelete(deal._id)
-                    }
-                    className="px-4 py-2 bg-red-50 text-red-700 rounded-xl text-sm font-medium hover:bg-red-100 transition"
-                  >
-                    Delete
-                  </button>
 
                 </div>
 
