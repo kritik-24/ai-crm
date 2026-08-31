@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Analytics from "./pages/Analytics";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import ForgotPassword from "./pages/Forgotpassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
@@ -25,7 +25,7 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         <Route
-          path="/forgot-password"
+          path="/forgot-Password"
           element={<ForgotPassword />}
         />
 
