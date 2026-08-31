@@ -24,20 +24,17 @@ function Login() {
 
       console.log("Login response:", data);
 
-      // Save JWT token
       localStorage.setItem("token", data.token);
 
       setMessage("Login successful!");
 
-      // Redirect to dashboard
       navigate("/dashboard");
-
     } catch (error) {
       console.error("Login error:", error);
 
       setMessage(
         error.response?.data?.message ||
-        "Login failed. Please try again."
+          "Login failed. Please try again."
       );
     } finally {
       setLoading(false);
@@ -45,37 +42,112 @@ function Login() {
   };
 
   return (
-    <div>
-      <h1>AI CRM Login</h1>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
 
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <div className="w-full max-w-md">
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        {/* Brand */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-2xl text-2xl font-bold shadow-lg">
+            AI
+          </div>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+          <h1 className="text-3xl font-bold text-gray-900 mt-4">
+            Welcome back
+          </h1>
 
-      {message && <p>{message}</p>}
+          <p className="text-gray-500 mt-2">
+            Sign in to manage your customers and sales.
+          </p>
+        </div>
 
-      <p>
-        Don't have an account?{" "}
-        <Link to="/register">Register here</Link>
-      </p>
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">
+            Sign in to AI CRM
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Password
+                </label>
+
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
+              <input
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Message */}
+            {message && (
+              <div className="px-4 py-3 rounded-xl bg-blue-50 text-blue-700 text-sm">
+                {message}
+              </div>
+            )}
+
+            {/* Login Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition"
+            >
+              {loading ? "Logging in..." : "Sign In"}
+            </button>
+
+          </form>
+
+          {/* Register */}
+          <p className="text-center text-gray-600 mt-6">
+            Don't have an account?{" "}
+
+            <Link
+              to="/register"
+              className="text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              Create account
+            </Link>
+          </p>
+
+        </div>
+
+        <p className="text-center text-sm text-gray-400 mt-6">
+          AI CRM · Customer & Sales Management
+        </p>
+
+      </div>
     </div>
   );
 }
